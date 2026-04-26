@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Master Data Management Strategy</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    min-height:100vh;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    padding:1.5rem;gap:1.2rem;font-family:'Segoe UI',system-ui,sans-serif;
+    background:
+      radial-gradient(ellipse at 20% 10%, rgba(140,170,100,0.55) 0%, transparent 55%),
+      radial-gradient(ellipse at 65% 8%,  rgba(190,140,80,0.50)  0%, transparent 50%),
+      radial-gradient(ellipse at 90% 30%, rgba(170,90,110,0.45)  0%, transparent 50%),
+      radial-gradient(ellipse at 85% 80%, rgba(80,90,160,0.45)   0%, transparent 50%),
+      radial-gradient(ellipse at 30% 85%, rgba(160,150,100,0.40) 0%, transparent 55%),
+      radial-gradient(ellipse at 5%  60%, rgba(120,160,110,0.40) 0%, transparent 50%),
+      #2a2640;
+    overflow-x:hidden;
+  }
+  .grain{position:fixed;inset:0;pointer-events:none;opacity:.12;z-index:0;width:100%;height:100%}
+  .header{z-index:1;text-align:center}
+  .header h1{color:rgba(230,220,255,.82);font-size:1.2rem;font-weight:700;letter-spacing:.05em}
+  .header p{color:rgba(180,170,210,.4);font-size:.68rem;margin-top:4px;letter-spacing:.15em;text-transform:uppercase}
+  .layout{display:flex;flex-wrap:wrap;align-items:center;gap:2rem;width:100%;max-width:920px;z-index:1}
+  .wheel-wrap{position:relative;flex-shrink:0;user-select:none}
+  .spin-btn{position:absolute;right:-8px;top:50%;transform:translateY(-50%);
+    z-index:10;background:none;border:none;padding:0;cursor:pointer;
+    opacity:1;transition:opacity .2s}
+  .spin-btn:disabled{opacity:.3;cursor:default}
+  .panel-wrap{flex:1;min-width:280px;z-index:1}
+  .panel{border-radius:1.25rem;padding:1.4rem;min-height:220px;max-height:420px;overflow-y:auto;
+    background:rgba(18,16,38,.60);backdrop-filter:blur(20px);
+    border:1px solid rgba(255,255,255,.10);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+  .accent-bar{height:3px;width:44px;border-radius:999px;margin-bottom:12px}
+  .tags{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .tag{font-size:.68rem;font-weight:700;padding:3px 10px;border-radius:999px}
+  .tag-outer{background:rgba(255,255,255,.10);color:rgba(210,205,230,.85);font-weight:600}
+  .panel h2{color:rgba(235,228,255,.92);font-size:.9rem;font-weight:700;margin-bottom:12px}
+  ol.kc-list{padding-left:16px;display:flex;flex-direction:column;gap:9px}
+  ol.kc-list li{color:rgba(190,185,215,.82);font-size:.76rem;line-height:1.6}
+  ol.kc-list li strong{color:rgba(230,222,255,.95)}
+  .ev-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .ev-card{display:flex;align-items:flex-start;gap:7px;
+    background:rgba(255,255,255,.05);border-radius:10px;padding:7px 9px}
+  .ev-card .icon{font-size:1rem;flex-shrink:0}
+  .ev-card span{color:rgba(190,185,215,.85);font-size:.72rem;line-height:1.55}
+  .amb-list{display:flex;flex-direction:column;gap:8px}
+  .amb-card{display:flex;align-items:flex-start;gap:10px;
+    background:rgba(255,255,255,.05);border-radius:10px;padding:8px 11px}
+  .amb-card .icon{font-size:1.1rem;flex-shrink:0}
+  .amb-label{font-size:.62rem;font-weight:800;letter-spacing:.12em;
+    color:rgba(210,200,255,.6);display:block;margin-bottom:2px}
+  .amb-text{color:rgba(190,185,215,.85);font-size:.74rem;line-height:1.55}
+  .pills{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
+  .pill{font-size:.68rem;padding:4px 12px;border-radius:999px;font-weight:700;
+    border:none;cursor:pointer;transition:opacity .2s}
+  .pill-outer{background:rgba(255,255,255,.10);color:rgba(210,205,230,.85);font-weight:600}
+  .empty{color:rgba(180,175,210,.4);font-size:.82rem;padding:.5rem}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .fade-up{animation:fadeUp .38s ease both}
+</style>
+</head>
+<body>
+
+<!-- Grain overlay -->
+<canvas class="grain" id="grainCanvas"></canvas>
+
+<div class="header">
+  <h1>Master Data Management Strategy</h1>
+  <p>Click ◀ to spin · select a pill to jump directly</p>
+</div>
+
+<div class="layout">
+  <div class="wheel-wrap">
+    <button class="spin-btn" id="spinBtn" title="Spin both rings">
+      <svg width="34" height="34" viewBox="0 0 34 34">
+        <polygon points="2,17 28,5 23,17 28,29" fill="rgba(200,195,230,0.75)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+      </svg>
+    </button>
+    <svg id="wheelSvg" width="400" height="400" viewBox="0 0 400 400">
+      <defs>
+        <linearGradient id="g-S2P" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#b8936a" stop-opacity=".9"/>
+          <stop offset="100%" stop-color="#7a5c32" stop-opacity=".95"/>
+        </linearGradient>
+        <linearGradient id="g-F2S" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#7a6e9e" stop-opacity=".9"/>
+          <stop offset="100%" stop-color="#3a3d6e" stop-opacity=".95"/>
+        </linearGradient>
+        <linearGradient id="g-O2C" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#c47a5a" stop-opacity=".9"/>
+          <stop offset="100%" stop-color="#8e4a3a" stop-opacity=".95"/>
+        </linearGradient>
+        <linearGradient id="g-R2D" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#7a9e6a" stop-opacity=".9"/>
+          <stop offset="100%" stop-color="#4a6e42" stop-opacity=".95"/>
+        </linearGradient>
+        <radialGradient id="hub-g" cx="50%" cy="38%" r="62%">
+          <stop offset="0%" stop-color="rgba(100,120,180,0.9)"/>
+          <stop offset="100%" stop-color="rgba(30,25,60,0.95)"/>
+        </radialGradient>
+        <filter id="sh"><feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="rgba(0,0,0,0.5)"/></filter>
+      </defs>
+      <circle cx="200" cy="200" r="186" fill="rgba(0,0,0,0.22)" filter="url(#sh)"/>
+      <g id="outerRing"></g>
+      <g id="innerRing"></g>
+      <circle cx="200" cy="200" r="115" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="5"/>
+      <circle cx="200" cy="200" r="116" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="4"/>
+      <circle cx="200" cy="200" r="44" fill="url(#hub-g)" stroke="rgba(150,160,220,0.35)" stroke-width="2"/>
+      <text x="200" y="200" text-anchor="middle" dominant-baseline="middle"
+        font-size="11" font-weight="800" fill="rgba(210,220,255,0.9)" letter-spacing="1">MDM</text>
+    </svg>
+  </div>
+
+  <div class="panel-wrap">
+    <div class="panel" id="panel">
+      <div class="empty">Spin or select a segment.</div>
+    </div>
+    <div class="pills" id="pills"></div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const CONTENT = {
+  S2P:{
+    "Key Changes":{type:"keychanges",title:"What Leap & MDM change for S2P",items:[
+      {bold:"New Ways of Working & tools",rest:": introduction of Ivalua as the unified e-procurement tool to create Suppliers"},
+      {bold:"Business Partner concept",rest:" for 360° view on a Supplier / Customer"},
+      {bold:"Harmonized data model",rest:" for Suppliers"},
+      {bold:"Single SKU approach",rest:" for DRY goods with globally harmonised procurement category"},
+    ]},
+    "Expected Value":{type:"expectedvalue",title:"What Leap & MDM change for S2P",items:[
+      {icon:"💰",text:"Enhance financial performance through consolidated view of suppliers and categories"},
+      {icon:"⭐",text:"Increase employee satisfaction & productivity"},
+      {icon:"⚙️",text:"Reduction of Vendor Master Data"},
+      {icon:"🌱",text:"Support PR sustainability ambitions"},
+      {icon:"🤝",text:"Improve business partner satisfaction"},
+    ]},
+    "Ambition":{type:"ambition",title:"Our S2P North Star",pillars:[
+      {label:"FUEL",icon:"🎈",text:"Buy less, buy better, buy cheaper — unlocking efficiencies, accessing talents & high standard service."},
+      {label:"PROTECT",icon:"🛡️",text:"Ensure security of supply & services. Strengthen value chain risk management & promote sustainable sourcing."},
+      {label:"LEVERAGE",icon:"🌐",text:"Leverage our global scale — deliver best-in-class partnerships & develop high standard processes, policies & tools."},
+    ]},
+  },
+  F2S:{
+    "Key Changes":{type:"keychanges",title:"What Leap & MDM change for F2S",items:[
+      {bold:"Single SKU Strategy",rest:" with unique code and description"},
+      {bold:"Unified product model",rest:" with stronger global governance"},
+      {bold:"MDM Product & Material as single source of truth",rest:" for transactional processes in Leap, satellite apps and associated analytics"},
+    ]},
+    "Expected Value":{type:"expectedvalue",title:"What Leap & MDM change for F2S",items:[
+      {icon:"📦",text:"E2E visibility on inventory level"},
+      {icon:"⭐",text:"Increased operational efficiency through reduced reconciliation efforts"},
+      {icon:"⚙️",text:"Improved product traceability, reduced portfolio complexity"},
+      {icon:"🔍",text:"Higher data quality in product definition"},
+      {icon:"🤝",text:"Simplified interco flows (e.g. FBQS) & clarified governance"},
+    ]},
+    "Ambition":{type:"ambition",title:"Our F2S Ambition",pillars:[
+      {label:"INTEGRATE",icon:"🧩",text:"All entities through one automated, connected intercompany process."},
+      {label:"STREAMLINE",icon:"🚢",text:"Logistics Execution — cost-to-serve visibility, transport optimisation & standardised 3PL integration."},
+      {label:"ENABLE",icon:"🎼",text:"End-to-End Planning — automated material planning & reliable supply execution."},
+      {label:"EXCELLENCE",icon:"🏆",text:"Operational Excellence Enablement."},
+      {label:"EFFICIENCY",icon:"⚡",text:"Manufacturing Efficiency & reliability."},
+      {label:"TRACEABILITY",icon:"🌱",text:"Reliable & E2E traceability."},
+    ]},
+  },
+  O2C:{
+    "Key Changes":{type:"keychanges",title:"What Leap and MDM change for O2C",items:[
+      {bold:"New Customer Master Data Management process",rest:" (MDH) for better data quality & action-oriented analytics"},
+      {bold:"Intercompany customers MD",rest:" managed across the group"},
+      {bold:"Sharing Customer MD with affiliates",rest:""},
+      {bold:"Leverage SAP features",rest:" to reduce Customer Master Data records"},
+    ]},
+    "Expected Value":{type:"expectedvalue",title:"What Leap and MDM change for O2C",items:[
+      {icon:"💰",text:"Avoid lost revenue / sales (better order fulfillment)"},
+      {icon:"⭐",text:"Better serve customers, increase satisfaction & limit penalties"},
+      {icon:"😊",text:"Increase employee satisfaction & productivity"},
+      {icon:"🚀",text:"Accelerate time-to-impact of growth initiatives"},
+    ]},
+    "Ambition":{type:"ambition",title:"4 Main Ambitions for O2C",pillars:[
+      {label:"",icon:"🏅",text:"Build world-class transactional services for Pernod Ricard customers throughout their journey."},
+      {label:"",icon:"⚙️",text:"Build fit-for-purpose commercial operating models, tailored & harmonized by customer archetype."},
+      {label:"",icon:"🎯",text:"Equip sales & customer service teams with tech & data-powered solutions to be more efficient and value-focused."},
+      {label:"",icon:"💰",text:"Step-up RGM capability."},
+    ]},
+  },
+  R2D:{
+    "Key Changes":{type:"keychanges",title:"What Leap and MDM change for R2D",items:[
+      {bold:"New & updated concepts",rest:": New Operating Chart of Accounts as common language linked to Polaris global reporting. Project/WBS concepts for A&P, Global Tech & CAPEX follow-up — serving as base for Data analytics."},
+      {bold:"Single entry point",rest:" for Master Data enabling standardized governance processes."},
+    ]},
+    "Expected Value":{type:"expectedvalue",title:"What Leap and MDM change for R2D",items:[
+      {icon:"🚄",text:"Faster & more reliable transactional finance — common reporting, higher speed & fewer errors"},
+      {icon:"⚖️",text:"Reinforced business compliance & cash management"},
+      {icon:"🔭",text:"Enhanced business visibility — faster & more reliable data, common analytics"},
+      {icon:"💼",text:"Operational excellence — optimized costs, proactive P&L and cash flow management"},
+    ]},
+    "Ambition":{type:"ambition",title:"Our R2D Ambition",pillars:[
+      {label:"SIMPLIFY",icon:"🎯",text:"Drive simplification & efficiency for a better service to the business."},
+      {label:"STRENGTHEN",icon:"🔧",text:"Strengthen our foundations for growth and speed of decision."},
+      {label:"FUTURE-READY",icon:"🌐",text:"Provide a robust & future-ready platform."},
+    ]},
+  },
+};
+
+const INNER = [
+  {id:"S2P",label:"S2P",c0:"#b8936a",c1:"#7a5c32"},
+  {id:"F2S",label:"F2S",c0:"#7a6e9e",c1:"#3a3d6e"},
+  {id:"O2C",label:"O2C",c0:"#c47a5a",c1:"#8e4a3a"},
+  {id:"R2D",label:"R2D",c0:"#7a9e6a",c1:"#4a6e42"},
+];
+const OUTER = [
+  {id:"Key Changes",label:"Key Changes",fill:"rgba(40,36,60,0.82)"},
+  {id:"Expected Value",label:"Expected Value",fill:"rgba(30,28,50,0.82)"},
+  {id:"Ambition",label:"Ambition",fill:"rgba(50,44,68,0.82)"},
+];
+
+const CX=200,CY=200,PA=90;
+const RI_IN=52,RI_OUT=112,RO_IN=118,RO_OUT=182;
+
+// ── GEOMETRY ──────────────────────────────────────────────────────────────────
+function pol(r,deg){
+  const a=(deg-90)*Math.PI/180;
+  return [CX+r*Math.cos(a), CY+r*Math.sin(a)];
+}
+function arc(rIn,rOut,s,e){
+  const [x1,y1]=pol(rOut,s),[x2,y2]=pol(rOut,e);
+  const [x3,y3]=pol(rIn,e), [x4,y4]=pol(rIn,s);
+  const lg=e-s>180?1:0;
+  return `M${x1},${y1} A${rOut},${rOut} 0 ${lg} 1 ${x2},${y2} L${x3},${y3} A${rIn},${rIn} 0 ${lg} 0 ${x4},${y4}Z`;
+}
+function activeAt(rot,count){
+  const s=360/count;
+  return ((Math.round((PA-rot)/s)%count)+count)%count;
+}
+function landRot(idx,segDeg,extra){
+  return PA - idx*segDeg - extra;
+}
+
+// ── SVG RING BUILDER ──────────────────────────────────────────────────────────
+function buildRing(segs,rIn,rOut,gradFn,textColor){
+  const count=segs.length, segDeg=360/count, off=-segDeg/2;
+  return segs.map((seg,i)=>{
+    const s=off+i*segDeg, e=s+segDeg, mid=s+segDeg/2;
+    const [lx,ly]=pol((rIn+rOut)/2, mid);
+    const fill=gradFn(seg,i);
+    const fsize=rIn===RI_IN?13:9;
+    return `<path d="${arc(rIn,rOut,s,e)}" fill="${fill}" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+    <text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle"
+      font-size="${fsize}" font-weight="700" fill="${textColor}"
+      transform="rotate(${mid},${lx},${ly})"
+      style="pointer-events:none;user-select:none">${seg.label}</text>`;
+  }).join('');
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let innerRot=PA, outerRot=PA, spinning=false, rafId=null;
+const segI=360/INNER.length, segO=360/OUTER.length;
+
+// ── RENDER RINGS ──────────────────────────────────────────────────────────────
+function renderRings(){
+  const og=document.getElementById('outerRing');
+  const ig=document.getElementById('innerRing');
+  og.setAttribute('transform',`rotate(${outerRot},${CX},${CY})`);
+  ig.setAttribute('transform',`rotate(${innerRot},${CX},${CY})`);
+  if(!og.hasChildNodes()){
+    og.innerHTML=buildRing(OUTER,RO_IN,RO_OUT,
+      (_,i)=>OUTER[i].fill,'rgba(220,210,240,0.9)');
+    ig.innerHTML=buildRing(INNER,RI_IN,RI_OUT,
+      (seg)=>`url(#g-${seg.id})`,'rgba(255,255,255,0.92)');
+  }
+}
+
+// ── RENDER PANEL ──────────────────────────────────────────────────────────────
+function renderPanel(){
+  const ii=activeAt(innerRot,INNER.length);
+  const oi=activeAt(outerRot,OUTER.length);
+  const seg=INNER[ii], cat=OUTER[oi];
+  const data=CONTENT[seg.id][cat.id];
+  const panel=document.getElementById('panel');
+
+  let html=`
+    <div class="accent-bar" style="background:linear-gradient(to right,${seg.c0},${seg.c1})"></div>
+    <div class="tags">
+      <span class="tag" style="background:linear-gradient(135deg,${seg.c0},${seg.c1});color:rgba(255,255,255,0.92)">${seg.label}</span>
+      <span class="tag tag-outer">${cat.label}</span>
+    </div>`;
+
+  if(data.type==='keychanges'){
+    html+=`<h2>Key Change Factors</h2><ol class="kc-list">`;
+    data.items.forEach(it=>{
+      html+=`<li><strong>${it.bold}</strong>${it.rest}</li>`;
+    });
+    html+=`</ol>`;
+  } else if(data.type==='expectedvalue'){
+    html+=`<h2>Expected Value</h2><div class="ev-grid">`;
+    data.items.forEach(it=>{
+      html+=`<div class="ev-card"><span class="icon">${it.icon}</span><span>${it.text}</span></div>`;
+    });
+    html+=`</div>`;
+  } else if(data.type==='ambition'){
+    html+=`<h2>${data.title}</h2><div class="amb-list">`;
+    data.pillars.forEach(p=>{
+      html+=`<div class="amb-card"><span class="icon">${p.icon}</span><div>
+        ${p.label?`<span class="amb-label">${p.label}</span>`:''}
+        <span class="amb-text">${p.text}</span></div></div>`;
+    });
+    html+=`</div>`;
+  }
+
+  panel.className='panel fade-up';
+  panel.innerHTML=html;
+  // Retrigger animation
+  void panel.offsetWidth;
+  panel.style.animation='none';
+  requestAnimationFrame(()=>{ panel.style.animation=''; panel.className='panel fade-up'; });
+}
+
+// ── RENDER PILLS ──────────────────────────────────────────────────────────────
+function renderPills(){
+  const ii=activeAt(innerRot,INNER.length);
+  const oi=activeAt(outerRot,OUTER.length);
+  const pills=document.getElementById('pills');
+  let html='';
+  INNER.forEach((s,i)=>{
+    const active=ii===i;
+    html+=`<button class="pill" onclick="jumpInner(${i})"
+      style="background:linear-gradient(135deg,${s.c0},${s.c1});color:rgba(255,255,255,0.9);opacity:${active?1:0.38}">${s.label}</button>`;
+  });
+  OUTER.forEach((s,i)=>{
+    const active=oi===i;
+    html+=`<button class="pill pill-outer" onclick="jumpOuter(${i})"
+      style="opacity:${active?1:0.38}">${s.label}</button>`;
+  });
+  pills.innerHTML=html;
+}
+
+function render(){renderRings();renderPanel();renderPills();}
+
+// ── EASING ────────────────────────────────────────────────────────────────────
+function easeOut(t){return 1-Math.pow(1-t,4);}
+
+// ── SPIN ──────────────────────────────────────────────────────────────────────
+function spin(){
+  if(spinning) return;
+  spinning=true;
+  document.getElementById('spinBtn').disabled=true;
+  cancelAnimationFrame(rafId);
+
+  const landI=Math.floor(Math.random()*INNER.length);
+  const landO=Math.floor(Math.random()*OUTER.length);
+  const extraI=(4+Math.floor(Math.random()*4))*360;
+  const extraO=(3+Math.floor(Math.random()*5))*360;
+  const fromI=innerRot, fromO=outerRot;
+  const toI=landRot(landI,segI,extraI);
+  const toO=landRot(landO,segO,extraO);
+  const dI=toI-fromI, dO=toO-fromO;
+  const durI=2800+Math.random()*600, durO=3400+Math.random()*800;
+  let start=null, doneI=false, doneO=false;
+
+  function frame(ts){
+    if(!start) start=ts;
+    const el=ts-start;
+    if(!doneI){const t=Math.min(el/durI,1);innerRot=fromI+dI*easeOut(t);if(t>=1){innerRot=toI;doneI=true;}}
+    if(!doneO){const t=Math.min(el/durO,1);outerRot=fromO+dO*easeOut(t);if(t>=1){outerRot=toO;doneO=true;}}
+    document.getElementById('outerRing').setAttribute('transform',`rotate(${outerRot},${CX},${CY})`);
+    document.getElementById('innerRing').setAttribute('transform',`rotate(${innerRot},${CX},${CY})`);
+    if(!doneI||!doneO){ rafId=requestAnimationFrame(frame); }
+    else {
+      spinning=false;
+      document.getElementById('spinBtn').disabled=false;
+      renderPanel(); renderPills();
+    }
+  }
+  rafId=requestAnimationFrame(frame);
+}
+
+// ── JUMP ──────────────────────────────────────────────────────────────────────
+function jumpInner(i){ if(!spinning){innerRot=landRot(i,segI,0);render();} }
+function jumpOuter(i){ if(!spinning){outerRot=landRot(i,segO,0);render();} }
+
+// ── GRAIN CANVAS ──────────────────────────────────────────────────────────────
+(function(){
+  const canvas=document.getElementById('grainCanvas');
+  function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+  function drawGrain(){
+    const ctx=canvas.getContext('2d');
+    const w=canvas.width,h=canvas.height;
+    const img=ctx.createImageData(w,h);
+    const d=img.data;
+    for(let i=0;i<d.length;i+=4){
+      const v=Math.random()*255|0;
+      d[i]=d[i+1]=d[i+2]=v;d[i+3]=28;
+    }
+    ctx.putImageData(img,0,0);
+  }
+  resize();drawGrain();
+  window.addEventListener('resize',()=>{resize();drawGrain();});
+})();
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.getElementById('spinBtn').addEventListener('click',spin);
+render();
+</script>
+</body>
+</html>
